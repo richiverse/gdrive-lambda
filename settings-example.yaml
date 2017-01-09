@@ -1,0 +1,4 @@
+client_config_backend: service
+service_config:
+  client_service_email: xxx@xxx.iam.gserviceaccount.com
+  client_pkcs12_file_path: client_secrets.p12

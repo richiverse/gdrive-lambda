@@ -1,0 +1,12 @@
+{ "file_name": "fruits.csv", "data": 
+[
+      {
+         "fruits":"apple",
+         "veggies":"brocoli"
+      },
+      {
+         "fruits":"blueberry",
+         "veggies":"asparagus"
+      }
+   ]
+}

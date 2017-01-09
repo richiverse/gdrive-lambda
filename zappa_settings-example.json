@@ -1,0 +1,8 @@
+{
+    "dev": {
+        "app_function": "app.app", 
+        "s3_bucket": "zappa-xxxxxxxxx",
+	"keep_warm": false,
+	"remote_env": "s3://xxxxx/xxxxxxxx.json"
+    }
+}

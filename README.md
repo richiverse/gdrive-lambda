@@ -5,10 +5,10 @@ The purpose of this project for the time being is to pass json data to a csv
 file for end users who use Gdrive across the organization. 
 
 #### Pre-Requisites
-pyenv # for saving this project as a 2.7 project for aws lambda
-AWS Credentials configured 
-Gdrive API enabled
-creds.p12 for google drive service account
+* pyenv # for saving this project as a 2.7 project for aws lambda
+* AWS Credentials configured 
+* Gdrive API enabled
+* creds.p12 for google drive service account
 
 
 #### Installation

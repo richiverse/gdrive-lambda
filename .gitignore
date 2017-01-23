@@ -1,5 +1,7 @@
 #pydrive settings
-settings*.yaml
+settings-dev.yaml
+settings-test.yaml
+settings-prod.yaml
 #zappa settings
 zappa_settings.json
 ## oauth secrets

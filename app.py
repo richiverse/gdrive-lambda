@@ -1,16 +1,18 @@
+#! /usr/bin/env python2
 """Gdrive/Flask/Zappa"""
 
 import json
 from os import environ
 from pprint import pprint as pp
+import urlparse
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
 #from odo import odo, discover, resource, dshape
 import pandas as pd
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError
-#from six import StringIO
+from six import StringIO
 
 #from utils import string_resource_to_json
 
@@ -47,11 +49,20 @@ def get_file_metadata():
 
 @app.route('/gdrive', methods=['GET'])
 def get_file():
-    uri = request.args.get('uri')
-    ifile = get_file_metadata(uri)
-    print(ifile.items())
+    """Given a URL or ID of a URL, return the parent folder id and
+    the csv file contents as json
+    https://drive.google.com/open?id=0ByfAQQm9a-DuNEgyXzFoNktCT1k
+    """
+    url = request.args.get('url')
+    parsed = urlparse.urlparse(url)
+    parsed_id = urlparse.parse_qs(parsed.query)['id']
+    parsed_id = url.split('id=')[-1] if 'id=' in url else url
+    # This creates a temporary pointer to the file to grab the folder id.
+    ifile = drive.CreateFile(dict(id=parsed_id))
     ifile_contents = StringIO(ifile.GetContentString())
-    return ifile_contents
+    df = pd.read_csv(ifile_contents)
+    folder_id = ifile['parents'][0]['id']
+    return jsonify(dict(folder_id=folder_id, data=df.to_json(orient='records')))
 
 def validate_file_name(file_name, valid_exts=['csv']):
     if not file_name:
@@ -91,7 +102,7 @@ def create_file(folder_id, file_name, data):
     except:
         raise("Couldn't create %(file_name)s" % file_name)
     df = pd.DataFrame(data)
-    ifile.SetContentString(df.to_csv())
+    ifile.SetContentString(df.to_csv(index=False))
     ifile.Upload()
     return ifile['webContentLink']
 

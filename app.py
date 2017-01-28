@@ -62,7 +62,11 @@ def get_file():
     ifile_contents = StringIO(ifile.GetContentString())
     df = pd.read_csv(ifile_contents)
     folder_id = ifile['parents'][0]['id']
-    return jsonify(dict(folder_id=folder_id, data=df.to_json(orient='records')))
+    return jsonify(
+        dict(folder_id=folder_id,
+             data=df.to_json(orient='records')
+        )
+    )
 
 def validate_file_name(file_name, valid_exts=['csv']):
     if not file_name:
@@ -109,13 +113,17 @@ def create_file(folder_id, file_name, data):
 def list_folder(folder_id):
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    folders = filter(lambda x: x['mimeType'] == 'application/vnd.google-apps.folder', file_list)
+    folders = filter(
+        lambda x: x['mimeType'] == 'application/vnd.google-apps.folder',
+        file_list)
     return [{"id": fld["id"], "title": fld["title"]} for fld in folders]
 
 def list_file(folder_id):
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    files = filter(lambda x: x['mimeType'] != 'application/vnd.google-apps.folder', file_list)
+    files = filter(
+        lambda x: x['mimeType'] != 'application/vnd.google-apps.folder',
+        file_list)
     return [{"id": fld["id"], "title": fld["title"]} for fld in files]
 
 @app.route('/gdrive', methods=['POST'])
@@ -127,7 +135,8 @@ def post_file():
     data = args['data']
     file_name = validate_file_name(args.get('file_name'))
     folder = file_name['folder']
-    parent_folder = file_name.get('GDRIVE_PARENT_FOLDER_ID', environ.get('GDRIVE_PARENT_FOLDER_ID'))
+    parent_folder = file_name.get('GDRIVE_PARENT_FOLDER_ID',
+                                  environ.get('GDRIVE_PARENT_FOLDER_ID'))
     file_name = file_name['file_name']
 
     folder_list = list_folder(parent_folder)

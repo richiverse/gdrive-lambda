@@ -2,7 +2,7 @@
 """Gdrive/Flask/Zappa"""
 
 import json
-from os import environ
+from os import environ as env
 from pprint import pprint as pp
 import urlparse
 
@@ -15,11 +15,12 @@ from pydrive.files import ApiRequestError
 from six import StringIO
 
 #from utils import string_resource_to_json
+from middleware import list_routes
 
 app = Flask(__name__)
 
 gauth = GoogleAuth(
-    settings_file='settings-%(stage)s.yaml' % dict(stage=environ.get('STAGE')))
+    settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE')))
 gauth.ServiceAuth()
 drive = GoogleDrive(gauth)
 
@@ -41,14 +42,19 @@ def get_file_handle(uri):
     pp(ifile.items())
     return ifile.items()
 
+@app.route('/gdrive')
+def list_api_routes():
+    """List all endpoints"""
+    return jsonify(list_routes(app))
+
 @app.route('/gdrive/metadata')
 def get_file_metadata():
     uri = request.args.get('uri')
     ifile = get_file_handle(uri)
     return json.dumps(ifile)
 
-@app.route('/gdrive', methods=['GET'])
-def get_file():
+@app.route('/gdrive/read', methods=['GET'])
+def read_file():
     """Given a URL or ID of a URL, return the parent folder id and
     the csv file contents as json
     https://drive.google.com/open?id=0ByfAQQm9a-DuNEgyXzFoNktCT1k
@@ -126,8 +132,8 @@ def list_file(folder_id):
         file_list)
     return [{"id": fld["id"], "title": fld["title"]} for fld in files]
 
-@app.route('/gdrive', methods=['POST'])
-def post_file():
+@app.route('/gdrive/write', methods=['POST'])
+def write_file():
     """Given file.csv and json data, create file/file.csv.
     Make sure to set your .env for GDRIVE_PARENT_FOLDER_ID.
     """
@@ -136,7 +142,7 @@ def post_file():
     file_name = validate_file_name(args.get('file_name'))
     folder = file_name['folder']
     parent_folder = file_name.get('GDRIVE_PARENT_FOLDER_ID',
-                                  environ.get('GDRIVE_PARENT_FOLDER_ID'))
+                                  env.get('GDRIVE_PARENT_FOLDER_ID'))
     file_name = file_name['file_name']
 
     folder_list = list_folder(parent_folder)
@@ -166,4 +172,5 @@ def post_file():
     return url
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    DEBUG = False if env['STAGE'] == 'prod' else True
+    app.run(debug=True, port=5000)

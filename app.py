@@ -62,7 +62,6 @@ def read_file():
     url = request.args.get('url')
     parsed = urlparse.urlparse(url)
     parsed_id = urlparse.parse_qs(parsed.query)['id']
-    parsed_id = url.split('id=')[-1] if 'id=' in url else url
     # This creates a temporary pointer to the file to grab the folder id.
     ifile = drive.CreateFile(dict(id=parsed_id))
     ifile_contents = StringIO(ifile.GetContentString())
@@ -141,7 +140,7 @@ def write_file():
     data = args['data']
     file_name = validate_file_name(args.get('file_name'))
     folder = file_name['folder']
-    parent_folder = file_name.get('GDRIVE_PARENT_FOLDER_ID',
+    parent_folder = args.get('folder_id',
                                   env.get('GDRIVE_PARENT_FOLDER_ID'))
     file_name = file_name['file_name']
 
@@ -169,7 +168,7 @@ def write_file():
             folder_id=folder_id,
             file_name=file_name,
             data=data)
-    return url
+    return jsonify(url)
 
 if __name__ == '__main__':
     DEBUG = False if env['STAGE'] == 'prod' else True

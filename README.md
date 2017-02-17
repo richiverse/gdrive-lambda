@@ -4,6 +4,19 @@ gdrive integration with lambda
 The purpose of this project for the time being is to pass json data to a csv
 file for end users who use Gdrive across the organization. 
 
+This project is currently in beta status. Issues and PRs welcome!
+
+#### Example usage in jupyter notebook with pandas
+
+```python
+# Set GDRIVE_TEST_URL and GDRIVE_TEST_KEY in your enviornment vars.
+from pandas_ext.gdrive import read_gdrive, to_gdrive
+results = read_gdrive('https://drive.google.com/uc?id=ABCDEFG')
+wresults = to_gdrive('atest.csv', results.df, results.folder_id)                             
+wresults
+'https://drive.google.com/uc?id=ABCXYZ&export=download'
+```
+
 #### Pre-Requisites
 * pyenv # for saving this project as a 2.7 project for aws lambda
 * AWS Credentials configured 
@@ -50,3 +63,6 @@ or:
 http POST http://localhost:5000/gdrive file_name=test.csv data:=@post_params2.json
 ```
 
+#### TODO
+[ ] Work with file types other than CSV (Ideally using odo)
+[ ] Work with Native Google Spreadsheet

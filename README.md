@@ -6,7 +6,7 @@ file for end users who use Gdrive across the organization.
 
 This project is currently in beta status. Issues and PRs welcome!
 
-#### Example usage in jupyter notebook with pandas
+#### Example usage as pandas client
 
 ```python
 # Set GDRIVE_TEST_URL and GDRIVE_TEST_KEY in your enviornment vars.

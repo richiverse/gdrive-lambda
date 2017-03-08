@@ -49,9 +49,18 @@ def list_api_routes():
 
 @app.route('/gdrive/metadata')
 def get_file_metadata():
-    uri = request.args.get('uri')
-    ifile = get_file_handle(uri)
-    return json.dumps(ifile)
+    url = request.args.get('url')
+    parsed_id = parse_url(url)
+    ifile = drive.CreateFile(dict(id=parsed_id))
+    print(ifile['mimeType'])
+    return jsonify(ifile.items())
+
+def parse_url(url):
+    parsed = urlparse.urlparse(url)
+    queries = urlparse.parse_qs(parsed.query)
+    path = parsed.path.split('/')
+    url_id = queries['id'][0] if 'id' in queries else path[3]
+    return url_id
 
 @app.route('/gdrive/read', methods=['GET'])
 def read_file():
@@ -60,16 +69,16 @@ def read_file():
     https://drive.google.com/open?id=0ByfAQQm9a-DuNEgyXzFoNktCT1k
     """
     url = request.args.get('url')
-    parsed = urlparse.urlparse(url)
-    parsed_id = urlparse.parse_qs(parsed.query)['id']
-    # This creates a temporary pointer to the file to grab the folder id.
+    parsed_id = parse_url(url)
     ifile = drive.CreateFile(dict(id=parsed_id))
     ifile_contents = StringIO(ifile.GetContentString())
     df = pd.read_csv(ifile_contents)
     folder_id = ifile['parents'][0]['id']
+    title = ifile['title']
     return jsonify(
         dict(folder_id=folder_id,
-             data=df.to_json(orient='records')
+             data=df.to_json(orient='records'),
+             file_name=title,
         )
     )
 
@@ -113,7 +122,7 @@ def create_file(folder_id, file_name, data):
     df = pd.DataFrame(data)
     ifile.SetContentString(df.to_csv(index=False))
     ifile.Upload()
-    return ifile['webContentLink']
+    return ifile['alternateLink']
 
 def list_folder(folder_id):
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
@@ -146,12 +155,10 @@ def write_file():
 
     folder_list = list_folder(parent_folder)
     match = filter(lambda x: x['title'] == folder, folder_list)
-    if not match:
-        folder_id = create_folder(
-            parent_folder,
-            folder)
-    else:
-        folder_id = match[0]['id']
+    folder_id = (
+        match[0]['id'] if match else
+        create_folder(parent_folder, folder)
+    )
 
     file_list = list_file(folder_id)
     match = filter(lambda x: x['title'] == file_name, file_list)

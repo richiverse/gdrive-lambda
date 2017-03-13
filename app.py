@@ -9,9 +9,10 @@ import urlparse
 from flask import Flask, request, jsonify
 #from odo import odo, discover, resource, dshape
 import pandas as pd
-from pydrive.auth import GoogleAuth
+from pydrive.auth import GoogleAuth, AuthError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError
+from pydrive.settings import InvalidConfigError
 from six import StringIO
 
 #from utils import string_resource_to_json
@@ -19,9 +20,26 @@ from middleware import list_routes
 
 app = Flask(__name__)
 
-gauth = GoogleAuth(
-    settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE')))
-gauth.ServiceAuth()
+try:
+    gauth = GoogleAuth(
+        settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE'))
+    )
+except AuthError as err:
+    print(err)
+except InvalidConfigError as err:
+    print(err)
+except Exception as err:
+    print(err)
+
+try:
+    gauth.ServiceAuth()
+except AuthError as err:
+    print(err)
+except InvalidConfigError as err:
+    print(err)
+except Exception as err:
+    print(err)
+
 drive = GoogleDrive(gauth)
 
 def handle_request(method, **kwargs):

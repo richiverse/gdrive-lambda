@@ -3,11 +3,10 @@
 
 import json
 from os import environ as env
-from pprint import pprint as pp
+from traceback import format_exc
 import urlparse
 
 from flask import Flask, request, jsonify
-#from odo import odo, discover, resource, dshape
 import pandas as pd
 from pydrive.auth import GoogleAuth, AuthError
 from pydrive.drive import GoogleDrive
@@ -20,45 +19,31 @@ from middleware import list_routes
 
 app = Flask(__name__)
 
-try:
-    gauth = GoogleAuth(
-        settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE'))
-    )
-except AuthError as err:
-    print(err)
-except InvalidConfigError as err:
-    print(err)
-except Exception as err:
-    print(err)
-
-try:
-    gauth.ServiceAuth()
-except AuthError as err:
-    print(err)
-except InvalidConfigError as err:
-    print(err)
-except Exception as err:
-    print(err)
-
-drive = GoogleDrive(gauth)
-
-def handle_request(method, **kwargs):
+def init_auth():
     try:
-        response = method(**kwargs)
-    except requests.exceptions.RequestException as err:
-       raise(err)
-    return response.json
+        gauth = GoogleAuth(
+            settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE'))
+        )
+    except AuthError as err:
+        raise(err)
+    except InvalidConfigError as err:
+        raise(err)
+    except Exception as err:
+        raise(err)
 
-def get_file_handle(uri):
-    uri_id = uri.split('/')[5]
     try:
-        ifile = drive.CreateFile({'id': uri_id})
-    except ApiRequestError:
-        raise(ApiRequestError)
+        gauth.ServiceAuth()
+    except AuthError as err:
+        raise(err)
+    except InvalidConfigError as err:
+        raise(err)
 
-    print(ifile['mimeType'])
-    pp(ifile.items())
-    return ifile.items()
+    return GoogleDrive(gauth)
+
+
+@app.errorhandler(Exception)
+def exception_handler(error):
+    raise ValueError, format_exc()
 
 @app.route('/gdrive')
 def list_api_routes():
@@ -67,6 +52,7 @@ def list_api_routes():
 
 @app.route('/gdrive/metadata')
 def get_file_metadata():
+    drive = init_auth()
     url = request.args.get('url')
     parsed_id = parse_url(url)
     ifile = drive.CreateFile(dict(id=parsed_id))
@@ -86,6 +72,7 @@ def read_file():
     the csv file contents as json
     https://drive.google.com/open?id=0ByfAQQm9a-DuNEgyXzFoNktCT1k
     """
+    drive = init_auth()
     url = request.args.get('url')
     parsed_id = parse_url(url)
     ifile = drive.CreateFile(dict(id=parsed_id))
@@ -114,7 +101,7 @@ def validate_file_name(file_name, valid_exts=['csv']):
 
     return dict(file_name=file_name, folder=folder, ext=ext)
 
-def create_folder(parent_folder_id, folder_name):
+def create_folder(parent_folder_id, folder_name, drive):
     try:
         folder = drive.CreateFile(dict(
             title=folder_name,
@@ -126,10 +113,10 @@ def create_folder(parent_folder_id, folder_name):
     try:
         folder.Upload()
     except:
-        raise('failed to upload')
+        pass
     return folder['id']
 
-def create_file(folder_id, file_name, data):
+def create_file(folder_id, file_name, data, drive):
     try:
         ifile = drive.CreateFile(dict(
             title=file_name,
@@ -137,25 +124,28 @@ def create_file(folder_id, file_name, data):
             mimeType='text/csv'))
     except:
         raise("Couldn't create %(file_name)s" % file_name)
-    df = pd.DataFrame(data)
+    try:
+        df = pd.read_json(data)
+    except:
+        df = pd.DataFrame(data)
     ifile.SetContentString(df.to_csv(index=False))
     ifile.Upload()
     return ifile['alternateLink']
 
-def list_folder(folder_id):
+def list_folder(folder_id, drive):
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    folders = filter(
+    folders = list(filter(
         lambda x: x['mimeType'] == 'application/vnd.google-apps.folder',
-        file_list)
+        file_list))
     return [{"id": fld["id"], "title": fld["title"]} for fld in folders]
 
-def list_file(folder_id):
+def list_file(folder_id, drive):
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    files = filter(
+    files = list(filter(
         lambda x: x['mimeType'] != 'application/vnd.google-apps.folder',
-        file_list)
+        file_list))
     return [{"id": fld["id"], "title": fld["title"]} for fld in files]
 
 @app.route('/gdrive/write', methods=['POST'])
@@ -163,6 +153,7 @@ def write_file():
     """Given file.csv and json data, create file/file.csv.
     Make sure to set your .env for GDRIVE_PARENT_FOLDER_ID.
     """
+    drive = init_auth()
     args = request.json
     data = args['data']
     file_name = validate_file_name(args.get('file_name'))
@@ -171,20 +162,21 @@ def write_file():
                                   env.get('GDRIVE_PARENT_FOLDER_ID'))
     file_name = file_name['file_name']
 
-    folder_list = list_folder(parent_folder)
-    match = filter(lambda x: x['title'] == folder, folder_list)
+    folder_list = list_folder(parent_folder, drive)
+    match = list(filter(lambda x: x['title'] == folder, folder_list))
     folder_id = (
         match[0]['id'] if match else
-        create_folder(parent_folder, folder)
+        create_folder(parent_folder, folder, drive)
     )
 
-    file_list = list_file(folder_id)
-    match = filter(lambda x: x['title'] == file_name, file_list)
+    file_list = list_file(folder_id, drive)
+    match = list(filter(lambda x: x['title'] == file_name, file_list))
     if not match:
         url = create_file(
             folder_id=folder_id,
             file_name=file_name,
-            data=data)
+            data=data,
+            drive=drive)
     else:
         file_id = match[0]['id']
         to_delete = drive.CreateFile({"id": file_id})
@@ -192,7 +184,8 @@ def write_file():
         url = create_file(
             folder_id=folder_id,
             file_name=file_name,
-            data=data)
+            data=data,
+            drive=drive)
     return jsonify(url)
 
 if __name__ == '__main__':

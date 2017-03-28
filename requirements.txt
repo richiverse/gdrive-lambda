@@ -4,3 +4,4 @@ git+https://github.com/googledrive/PyDrive.git#egg=PyDrive
 zappa
 #odo
 pandas
+xlrd

@@ -130,7 +130,7 @@ def read_file():
     data = open(tmp_file, 'rb')
     remove(tmp_file)
 
-    return Response(yield_bytes(data, mimetype))
+    return Response(yield_bytes(data), mimetype=mimetype)
 
 def create_folder(parent_folder_id, folder_name, drive):
     try:

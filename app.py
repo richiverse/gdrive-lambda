@@ -199,8 +199,7 @@ def write_file():
     allows you to control who gets access to your files.
 
     Args:
-        data <file-object> # File must exist on your machine
-        file_name <str> # Requires extension set
+        file <file-object> # File must exist on your machine
         folder_id <str> # Optional
 
     Returns:

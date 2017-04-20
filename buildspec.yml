@@ -16,6 +16,7 @@ phases:
       - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-$STAGE.p12 .
   build:
     commands:
+      - . ./venv/bin/activate && zappa status $STAGE
       - . ./venv/bin/activate && zappa update $STAGE
   post_build:
     commands:

@@ -1,18 +1,22 @@
 version: 0.1
 
+environment_variables:
+  plaintext:
+    STAGE: "dev"
+
 phases:
   pre_build:
     commands:
       - aws cp s3://$S3_BUCKET/gdrive-lambda/zappa_settings.json .
-      - aws cp s3://$S3_BUCKET/gdrive-lambda/settings-dev.yaml .
-      - aws cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-dev.p12 .
+      - aws cp s3://$S3_BUCKET/gdrive-lambda/settings-$STAGE.yaml .
+      - aws cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-$STAGE.p12 .
   build:
     commands:
       - |
         virtualenv venv && \
         source ./venv/bin/activate && \
         pip install -r requirements.txt && \
-        zappa update dev
+        zappa update $STAGE
   post_build:
     commands:
       - rm zappa_settings.json

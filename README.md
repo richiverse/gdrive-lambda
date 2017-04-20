@@ -1,4 +1,7 @@
 # gdrive-lambda
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d430c5411ed949cf894b772b6500cfc0)](https://www.codacy.com/app/richiverse/gdrive-lambda?utm_source=github.com&utm_medium=referral&utm_content=richiverse/gdrive-lambda&utm_campaign=badger)
+
 gdrive integration with lambda
 
 The purpose of this project for the time being is to pass json data to a csv

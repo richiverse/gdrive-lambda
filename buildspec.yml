@@ -8,7 +8,7 @@ phases:
   install:
     commands:
       - pip install virtualenv
-      - virtualenv venv && source ./venv/bin/activate && pip install -r requirements.txt
+      - virtualenv venv && . ./venv/bin/activate && pip install -r requirements.txt
   pre_build:
     commands:
       - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/zappa_settings.json .
@@ -16,7 +16,7 @@ phases:
       - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-$STAGE.p12 .
   build:
     commands:
-      - source ./venv/bin/activate && zappa update $STAGE
+      - . ./venv/bin/activate && zappa update $STAGE
   post_build:
     commands:
       - rm zappa_settings.json

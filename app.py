@@ -2,6 +2,7 @@
 """Gdrive/Flask/Zappa"""
 
 from os import environ as env, remove, path
+from tempfile import gettempdir
 from traceback import format_exc
 import urlparse
 from werkzeug.utils import secure_filename
@@ -10,37 +11,60 @@ from flask import Flask, request, jsonify, Response
 from pydrive.auth import GoogleAuth, AuthError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError
-from pydrive.settings import InvalidConfigError
+from pydrive.settings import InvalidConfigError, LoadSettingsFile
 
+from oauth2client.service_account import ServiceAccountCredentials
 from middleware import list_routes
 
-
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = '/tmp'
+app.config['UPLOAD_FOLDER'] = gettempdir()
 
-ALLOWED_EXTENSIONS = dict(
-    csv='text/csv',
-    doc='application/msword',
-    docx='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    json='application/json',
-    pdf='application/pdf',
-    png='image/png',
-    ppt='application/vnd.ms-powerpoint',
-    pptx='application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    svg='image/svg+xml',
-    txt='text/plain',
-    xls='application/vnd.ms-excel',
-    xlsx='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    zip='application/zip',
-)
 
-ONE_MEGABYTE = 1024 * 1024
+def allowed_extensions():
+    # type: () -> dict
+    """Returns extension to mimetype mapping for allowed extensions.
+
+    Args:
+        None
+
+    Returns:
+        {extension: mimetype}
+    """
+    return dict(
+        csv='text/csv',
+        doc='application/msword',
+        docx='application/vnd.openxmlformats-officedocument'
+            '.wordprocessingml.document',
+        json='application/json',
+        pdf='application/pdf',
+        png='image/png',
+        ppt='application/vnd.ms-powerpoint',
+        pptx='application/vnd.openxmlformats-officedocument'
+            '.presentationml.presentation',
+        svg='image/svg+xml',
+        txt='text/plain',
+        xls='application/vnd.ms-excel',
+        xlsx='application/vnd.openxmlformats-officedocument'
+            '.spreadsheetml.sheet',
+        zip='application/zip',
+    )
+
+
 
 def init_auth():
-    """initialize auth when needed"""
+    # type: -> GoogleDrive
+    """initialize auth when needed
+
+    Args:
+        None
+
+    Returns:
+        GoogleDrive object
+    """
     try:
         gauth = GoogleAuth(
-            settings_file='settings-%(stage)s.yaml' % dict(stage=env.get('STAGE'))
+            settings_file=(
+                'settings-%(stage)s.yaml' % dict(stage=env.get('STAGE')))
         )
     except AuthError as err:
         raise(err)
@@ -61,7 +85,15 @@ def init_auth():
 
 @app.errorhandler(Exception)
 def exception_handler(error):
-    """Show uncaught exceptions."""
+    # type: (Exception) -> Exception
+    """Show uncaught exceptions.
+
+    Args:
+        error
+
+    Raises:
+        Exception
+        """
     raise Exception, format_exc()
 
 @app.route('/gdrive')
@@ -77,14 +109,24 @@ def list_api_routes():
     return jsonify(list_routes(app))
 
 def parse_url(url):
+    # type: (str) -> str
+    """Return the 3rd part of the url or get id param if it exists.
+
+    Args:
+        url: google drive url
+
+    Returns:
+        url id
+    """
     parsed = urlparse.urlparse(url)
     queries = urlparse.parse_qs(parsed.query)
     path = parsed.path.split('/')
-    url_id = queries['id'][0] if 'id' in queries else path[3]
-    return url_id
+
+    return queries['id'][0] if 'id' in queries else path[3]
 
 @app.route('/gdrive/metadata')
 def get_file_metadata():
+    # type: () -> dict
     """Get all metadata on a file or folder.
 
     Args:
@@ -101,38 +143,74 @@ def get_file_metadata():
     return jsonify(ifile.items())
 
 def yield_bytes(data):
+    # type: (file) -> file
+    """yield bytes to the caller for the response object.
+
+    There is a hard limit of 5MB of data return so the results are
+    streamed to the user.
+
+    Args:
+        data is a file object that you want streamed.
+
+    Yields:
+        one megabyte of data at a time.
+    """
+    one_megabyte = 1024 * 1024
     while True:
-        data_bytes = data.read(ONE_MEGABYTE)
+        data_bytes = data.read(one_megabyte)
         if not data_bytes:
             break
         yield data_bytes
 
+
 @app.route('/gdrive/read', methods=['GET'])
 def read_file():
+    # type: () -> file
     """Given a URL or ID of a URL, return the file.
 
     Args:
-        url <str> # gdrive url link
+        url: # gdrive url link
 
     Returns:
-        fileobject #binary representation of mimetype
+        fileobject: binary representation of mimetype
     """
     drive = init_auth()
     url = request.args.get('url')
     parsed_id = parse_url(url)
+    google_app_mimetypes = {
+        'application/vnd.google-apps.document': 'application/vnd'
+            '.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.google-apps.presentation': 'application/vnd'
+            '.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.google-apps.spreadsheet': 'application/vnd'
+            '.openxmlformats-officedocument.spreadsheetml.sheet',
+    }
     ifile = drive.CreateFile(dict(id=parsed_id))
     mimetype = ifile['mimeType']
     title = ifile['title']
+    tmp_file = '{}/{}'.format(gettempdir(), title)
 
-    tmp_file = '/tmp/{}'.format(title)
+    if mimetype in (google_app_mimetypes):
+        mimetype = google_app_mimetypes[mimetype]
+
     ifile.GetContentFile(tmp_file, mimetype=mimetype)
-    file_extension = ifile['fileExtension']
     data = open(tmp_file, 'rb')
     remove(tmp_file)
 
     return Response(yield_bytes(data), mimetype=mimetype)
 
+
 def create_folder(parent_folder_id, folder_name, drive):
+    # type: (str, str, GoogleDrive) -> str
+    """Create a folder at the given folder id location with a folder name.
+
+    Args:
+        parent_folder_id: folder location you would like this folder created.
+        folder_name: name of the folder.
+
+    Returns:
+        folder_id: of this newly created folder.
+    """
     try:
         folder = drive.CreateFile(dict(
             title=folder_name,
@@ -141,13 +219,25 @@ def create_folder(parent_folder_id, folder_name, drive):
         ))
     except:
         raise('problem creating folder')
+
     try:
         folder.Upload()
     except:
         pass
+
     return folder['id']
 
 def list_folder(folder_id, drive):
+    # type: (str, GoogleDrive) -> dict
+    """List all folders in a given folder_id.
+
+    Args:
+        folder_id: folder id.
+        drive: Auth object.
+
+    Returns:
+        dict(id: folder_id, title: folder_title)
+    """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
     folders = list(filter(
@@ -156,41 +246,84 @@ def list_folder(folder_id, drive):
     return [{"id": fld["id"], "title": fld["title"]} for fld in folders]
 
 def list_file(folder_id, drive):
+    # type: (str, GoogleDrive) -> dict
+    """List all files in a given folder id.
+
+    Args:
+        folder_id: folder id to begin listing.
+        drive: Auth object.
+
+    Returns:
+        dict(id:file_id, title:file_title)
+    """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
     files = list(filter(
         lambda x: x['mimeType'] != 'application/vnd.google-apps.folder',
-        file_list))
+        file_list)
+    )
     return [{"id": fld["id"], "title": fld["title"]} for fld in files]
 
 def validate_file_name(file_name):
+    # type: (str) -> dict
+    """Validate file name and return file in pieces.
+
+    Args:
+        file_name: Full filename + extension.
+
+    Returns:
+        dict(file_name: file_name, folder: folder, ext=ext)
+    """
     if not file_name:
         raise('no file provided')
 
-    folder, ext = file_name.split('.')[:-1][0], file_name.split('.')[-1].lower()
+    folder, ext = (
+        file_name.split('.')[:-1][0],
+        file_name.split('.')[-1].lower()
+    )
 
     if not folder:
         raise('not a valid folder')
 
-    if ext not in ALLOWED_EXTENSIONS:
+    if ext not in allowed_extensions():
         raise('%s not a valid file format' % ext)
 
     return dict(file_name=file_name, folder=folder, ext=ext)
 
-def create_file(folder_id, file_name, ext, drive):
+
+def create_file(folder_id, file_name, ext, to_gapp, drive):
+    # type: (str, str, str, bool, GoogleDrive) -> str
+    """Creates a file in Google Drive.
+
+    Args:
+        folder_id: folder where you want this file created.
+        file_name: name of file.
+        ext: valid extension in allowed_extensions().
+        to_gapp: Convert to google app for csv, xlsx, xls, docx, pptx
+        drive: auth object
+
+    Returns:
+        Alternate Link to file.
+    """
     try:
         ifile = drive.CreateFile(dict(
             title=file_name,
             parents=[dict(id=folder_id)],
-            mimeType=ALLOWED_EXTENSIONS[ext]))
+            mimetype=allowed_extensions()[ext]))
     except:
         raise("Couldn't create %s" % file_name)
+
     ifile.SetContentFile(path.join(app.config['UPLOAD_FOLDER'], file_name))
-    ifile.Upload()
+    google_app_extensions = ('csv', 'xls', 'xlsx', 'docx', 'pptx')
+    convert_to_google_app = (to_gapp and ext in google_app_extensions)
+    ifile.Upload(dict(convert=convert_to_google_app))
+
     return ifile['alternateLink']
+
 
 @app.route('/gdrive/write', methods=['POST'])
 def write_file():
+    # type: () -> str
     """Given file.ext, create file/file.ext.
 
     Make sure to set your .env for GDRIVE_PARENT_FOLDER_ID.
@@ -199,29 +332,32 @@ def write_file():
     allows you to control who gets access to your files.
 
     Args:
-        file <file-object> # File must exist on your machine
-        folder_id <str> # Optional
+        file <tuple(file_name:str, file_name:file)>:
+            File must exist on your machine.
+        folder_id <str>: Optional. Defaults to GDRIVE_PARENT_FOLDER_ID.
 
     Returns:
-        str # gdrive alternate link to preview the file.
+        Alternate Link str # gdrive alternate link to preview the file.
     """
     drive = init_auth()
-    file = request.files['file']
-    file_metadata = validate_file_name(file.filename)
+    ifile = request.files['file']
+    file_metadata = validate_file_name(ifile.filename)
 
     args = request.form
     folder = file_metadata['folder']
     parent_folder_id = args.get(
         'folder_id', env.get('GDRIVE_PARENT_FOLDER_ID')
     )
-
+    to_gapp = args.get('to_gapp', False)
     file_name = path.join(app.config['UPLOAD_FOLDER'],
                           secure_filename(file_metadata['file_name']))
 
-    file.save(file_name)
+    ifile.save(file_name)
     ext = file_metadata['ext']
+
     folder_list = list_folder(parent_folder_id, drive)
     match = list(filter(lambda x: x['title'] == folder, folder_list))
+
     folder_id = (
         match[0]['id'] if match else
         create_folder(parent_folder_id, folder, drive)
@@ -239,10 +375,13 @@ def write_file():
         folder_id=folder_id,
         file_name=file_metadata['file_name'],
         ext=ext,
-        drive=drive)
+        to_gapp=to_gapp,
+        drive=drive
+    )
     remove(file_name)
 
     return jsonify(url)
+
 
 if __name__ == '__main__':
     DEBUG = False if env['STAGE'] == 'prod' else True

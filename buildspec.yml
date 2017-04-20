@@ -7,9 +7,9 @@ environment_variables:
 phases:
   pre_build:
     commands:
-      - aws cp s3://$S3_BUCKET/gdrive-lambda/zappa_settings.json .
-      - aws cp s3://$S3_BUCKET/gdrive-lambda/settings-$STAGE.yaml .
-      - aws cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-$STAGE.p12 .
+      - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/zappa_settings.json .
+      - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/settings-$STAGE.yaml .
+      - aws s3 cp s3://$S3_BUCKET/gdrive-lambda/client_secrets-$STAGE.p12 .
   build:
     commands:
       - |

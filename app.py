@@ -11,9 +11,8 @@ from flask import Flask, request, jsonify, Response
 from pydrive.auth import GoogleAuth, AuthError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError
-from pydrive.settings import InvalidConfigError, LoadSettingsFile
+from pydrive.settings import InvalidConfigError
 
-from oauth2client.service_account import ServiceAccountCredentials
 from middleware import list_routes
 
 app = Flask(__name__)
@@ -222,7 +221,7 @@ def create_folder(parent_folder_id, folder_name, drive):
 
     try:
         folder.Upload()
-    except:
+    except ApiRequestError as err:
         pass
 
     return folder['id']
@@ -240,9 +239,10 @@ def list_folder(folder_id, drive):
     """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    folders = list(filter(
-        lambda x: x['mimeType'] == 'application/vnd.google-apps.folder',
-        file_list))
+    folders = [
+        x for x in file_list.items()
+        if x['mimeType'] == 'application/vnd.google-apps.folder'
+    ]
     return [{"id": fld["id"], "title": fld["title"]} for fld in folders]
 
 def list_file(folder_id, drive):
@@ -258,10 +258,10 @@ def list_file(folder_id, drive):
     """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
     file_list =  drive.ListFile(_q).GetList()
-    files = list(filter(
-        lambda x: x['mimeType'] != 'application/vnd.google-apps.folder',
-        file_list)
-    )
+    files = [
+        x for x in file_list.items()
+        if x['mimeType'] == 'application/vnd.google-apps.folder'
+    ]
     return [{"id": fld["id"], "title": fld["title"]} for fld in files]
 
 def validate_file_name(file_name):
@@ -356,7 +356,7 @@ def write_file():
     ext = file_metadata['ext']
 
     folder_list = list_folder(parent_folder_id, drive)
-    match = list(filter(lambda x: x['title'] == folder, folder_list))
+    match = [x for x in folder_list.items() if x['title'] == folder]
 
     folder_id = (
         match[0]['id'] if match else
@@ -364,7 +364,7 @@ def write_file():
     )
 
     file_list = list_file(folder_id, drive)
-    match = list(filter(lambda x: x['title'] == file_name, file_list))
+    match = [x for x in file_list.items() if x['title'] == file_name]
 
     if match:
         file_id = match[0]['id']

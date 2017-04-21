@@ -2,6 +2,7 @@
 """Gdrive/Flask/Zappa"""
 
 from os import environ as env, remove, path
+from operator import eq, ne
 from tempfile import gettempdir
 from traceback import format_exc
 import urlparse
@@ -226,26 +227,8 @@ def create_folder(parent_folder_id, folder_name, drive):
 
     return folder['id']
 
-def list_folder(folder_id, drive):
-    # type: (str, GoogleDrive) -> dict
-    """List all folders in a given folder_id.
 
-    Args:
-        folder_id: folder id.
-        drive: Auth object.
-
-    Returns:
-        dict(id: folder_id, title: folder_title)
-    """
-    _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
-    file_list =  drive.ListFile(_q).GetList()
-    folders = [
-        x for x in file_list.items()
-        if x['mimeType'] == 'application/vnd.google-apps.folder'
-    ]
-    return [{"id": fld["id"], "title": fld["title"]} for fld in folders]
-
-def list_file(folder_id, drive):
+def list_file_object(folder_id, directory_only=False, drive):
     # type: (str, GoogleDrive) -> dict
     """List all files in a given folder id.
 
@@ -257,12 +240,14 @@ def list_file(folder_id, drive):
         dict(id:file_id, title:file_title)
     """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
-    file_list =  drive.ListFile(_q).GetList()
-    files = [
-        x for x in file_list.items()
-        if x['mimeType'] == 'application/vnd.google-apps.folder'
+    file_object_list =  drive.ListFile(_q).GetList()
+    op = {True: eq, False: ne}[directory_only]
+    file_objects = [
+        x for x in file_object_list.items()
+        if op(x['mimeType'], 'application/vnd.google-apps.folder')
     ]
-    return [{"id": fld["id"], "title": fld["title"]} for fld in files]
+    return [{"id": fld["id"], "title": fld["title"]} for fld in file_objects]
+
 
 def validate_file_name(file_name):
     # type: (str) -> dict
@@ -355,7 +340,7 @@ def write_file():
     ifile.save(file_name)
     ext = file_metadata['ext']
 
-    folder_list = list_folder(parent_folder_id, drive)
+    folder_list = list_file_object(parent_folder_id, directory_only=True, drive)
     match = [x for x in folder_list.items() if x['title'] == folder]
 
     folder_id = (
@@ -363,7 +348,7 @@ def write_file():
         create_folder(parent_folder_id, folder, drive)
     )
 
-    file_list = list_file(folder_id, drive)
+    file_list = list_file_object(folder_id, drive)
     match = [x for x in file_list.items() if x['title'] == file_name]
 
     if match:

@@ -221,7 +221,7 @@ def create_folder(parent_folder_id, folder_name, drive):
 
     try:
         folder.Upload()
-    except ApiRequestError as err:
+    except ApiRequestError:
         pass
 
     return folder['id']

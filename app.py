@@ -200,11 +200,12 @@ def read_file():
     return Response(yield_bytes(data), mimetype=mimetype)
 
 
-def create_folder(parent_folder_id, folder_name, drive):
-    # type: (str, str, GoogleDrive) -> str
+def create_folder(drive, parent_folder_id, folder_name):
+    # type: (GoogleDrive, str, str) -> str
     """Create a folder at the given folder id location with a folder name.
 
     Args:
+        drive: Auth object.
         parent_folder_id: folder location you would like this folder created.
         folder_name: name of the folder.
 
@@ -228,13 +229,14 @@ def create_folder(parent_folder_id, folder_name, drive):
     return folder['id']
 
 
-def list_file_object(folder_id, directory_only=False, drive):
-    # type: (str, GoogleDrive) -> dict
+def list_file_object(drive, folder_id, directory_only=False):
+    # type: (GoogleDrive, str, bool) -> dict
     """List all files in a given folder id.
 
     Args:
-        folder_id: folder id to begin listing.
         drive: Auth object.
+        folder_id: folder id to begin listing.
+        directory_only: Whether to list only directories or not.
 
     Returns:
         dict(id:file_id, title:file_title)
@@ -276,16 +278,17 @@ def validate_file_name(file_name):
     return dict(file_name=file_name, folder=folder, ext=ext)
 
 
-def create_file(folder_id, file_name, ext, to_gapp, drive):
-    # type: (str, str, str, bool, GoogleDrive) -> str
+def create_file(drive, folder_id, file_name, ext, to_gapp=False):
+    # type: (GoogleDrive, str, str, str, bool) -> str
     """Creates a file in Google Drive.
 
     Args:
+        drive: auth object
         folder_id: folder where you want this file created.
         file_name: name of file.
         ext: valid extension in allowed_extensions().
-        to_gapp: Convert to google app for csv, xlsx, xls, docx, pptx
-        drive: auth object
+        to_gapp: Convert to google app for csv, xlsx, xls, docx, pptx.
+            Default False.
 
     Returns:
         Alternate Link to file.
@@ -340,15 +343,15 @@ def write_file():
     ifile.save(file_name)
     ext = file_metadata['ext']
 
-    folder_list = list_file_object(parent_folder_id, directory_only=True, drive)
+    folder_list = list_file_object(drive, parent_folder_id, directory_only=True)
     match = [x for x in folder_list.items() if x['title'] == folder]
 
     folder_id = (
         match[0]['id'] if match else
-        create_folder(parent_folder_id, folder, drive)
+        create_folder(drive, parent_folder_id, folder)
     )
 
-    file_list = list_file_object(folder_id, drive)
+    file_list = list_file_object(drive, folder_id)
     match = [x for x in file_list.items() if x['title'] == file_name]
 
     if match:
@@ -357,11 +360,11 @@ def write_file():
         to_delete.Delete()
 
     url = create_file(
+        drive=drive,
         folder_id=folder_id,
         file_name=file_metadata['file_name'],
         ext=ext,
         to_gapp=to_gapp,
-        drive=drive
     )
     remove(file_name)
 

@@ -50,7 +50,6 @@ def allowed_extensions():
     )
 
 
-
 def init_auth():
     # type: -> GoogleDrive
     """initialize auth when needed
@@ -94,7 +93,8 @@ def exception_handler(error):
     Raises:
         Exception
         """
-    raise Exception, format_exc()
+    raise Exception(format_exc())
+
 
 @app.route('/gdrive')
 def list_api_routes():
@@ -107,6 +107,7 @@ def list_api_routes():
         json list of endpoints.
     """
     return jsonify(list_routes(app))
+
 
 def parse_url(url):
     # type: (str) -> str
@@ -123,6 +124,7 @@ def parse_url(url):
     path = parsed.path.split('/')
 
     return queries['id'][0] if 'id' in queries else path[3]
+
 
 @app.route('/gdrive/metadata')
 def get_file_metadata():
@@ -141,6 +143,7 @@ def get_file_metadata():
     ifile = drive.CreateFile(dict(id=parsed_id))
     print(ifile['mimeType'])
     return jsonify(ifile.items())
+
 
 def yield_bytes(data):
     # type: (file) -> file
@@ -179,11 +182,11 @@ def read_file():
     parsed_id = parse_url(url)
     google_app_mimetypes = {
         'application/vnd.google-apps.document': 'application/vnd'
-            '.openxmlformats-officedocument.wordprocessingml.document',
+        '.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.google-apps.presentation': 'application/vnd'
-            '.openxmlformats-officedocument.presentationml.presentation',
+        '.openxmlformats-officedocument.presentationml.presentation',
         'application/vnd.google-apps.spreadsheet': 'application/vnd'
-            '.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.openxmlformats-officedocument.spreadsheetml.sheet',
     }
     ifile = drive.CreateFile(dict(id=parsed_id))
     mimetype = ifile['mimeType']
@@ -242,10 +245,10 @@ def list_file_object(drive, folder_id, directory_only=False):
         dict(id:file_id, title:file_title)
     """
     _q = {'q': "'{}' in parents and trashed=false".format(folder_id)}
-    file_object_list =  drive.ListFile(_q).GetList()
+    file_object_list = drive.ListFile(_q).GetList()
     op = {True: eq, False: ne}[directory_only]
     file_objects = [
-        x for x in file_object_list.items()
+        x for x in file_object_list
         if op(x['mimeType'], 'application/vnd.google-apps.folder')
     ]
     return [{"id": fld["id"], "title": fld["title"]} for fld in file_objects]
@@ -343,8 +346,9 @@ def write_file():
     ifile.save(file_name)
     ext = file_metadata['ext']
 
-    folder_list = list_file_object(drive, parent_folder_id, directory_only=True)
-    match = [x for x in folder_list.items() if x['title'] == folder]
+    folder_list = list_file_object(
+        drive, parent_folder_id, directory_only=True)
+    match = [x for x in folder_list if x['title'] == folder]
 
     folder_id = (
         match[0]['id'] if match else
@@ -352,7 +356,7 @@ def write_file():
     )
 
     file_list = list_file_object(drive, folder_id)
-    match = [x for x in file_list.items() if x['title'] == file_name]
+    match = [x for x in file_list if x['title'] == file_name]
 
     if match:
         file_id = match[0]['id']

@@ -18,6 +18,7 @@ try:
 except NameError:
     pass
 
+
 def list_routes(app):
     output = []
     for rule in app.url_map.iter_rules():
@@ -29,20 +30,23 @@ def list_routes(app):
         for arg in rule.arguments:
             options[arg] = "[{0}]".format(arg)
 
-        methods = ','.join(rule for rule in rule.methods if rule not in ('OPTIONS','HEAD'))
+        methods = ','.join(
+            rule for rule in rule.methods
+            if rule not in ('OPTIONS', 'HEAD'))
         url = url_for(rule.endpoint, **options)
-        line = urllib.unquote("{:7s}{:30s}{}".format(methods, url, rule.endpoint))
+        line = urllib.unquote(
+            "{:7s}{:30s}{}".format(methods, url, rule.endpoint))
         output.append(line)
 
-    return [line for line in sorted(output)]
+    return [ln for ln in sorted(output)]
+
 
 def random_string(size=64):
     return ''.join(
         random.SystemRandom().choice(
-        string.ascii_letters + string.digits)
+            string.ascii_letters + string.digits)
         for _ in range(size)
     )
-
 
 
 if __name__ == '__main__':

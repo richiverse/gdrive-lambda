@@ -1,4 +1,7 @@
 # gdrive-lambda
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/d430c5411ed949cf894b772b6500cfc0)](https://www.codacy.com/app/richiverse/gdrive-lambda?utm_source=github.com&utm_medium=referral&utm_content=richiverse/gdrive-lambda&utm_campaign=badger)
+
 gdrive integration with lambda
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/d430c5411ed949cf894b772b6500cfc0)](https://www.codacy.com/app/richiverse/gdrive-lambda?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=richiverse/gdrive-lambda&amp;utm_campaign=Badge_Grade)
